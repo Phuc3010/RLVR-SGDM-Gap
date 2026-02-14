@@ -1,0 +1,86 @@
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""
+Preprocess the MATH-lighteval dataset to parquet format
+"""
+
+import argparse
+import json
+import os
+
+import datasets
+
+from verl.utils.hdfs_io import copy, makedirs
+from verl.utils.reward_score.math_reward import last_boxed_only_string, remove_boxed
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--local_dir", default=None)
+    parser.add_argument("--hdfs_dir", default=None)
+    parser.add_argument("--local_dataset_path", default=None, help="The local path to the raw dataset, if it exists.")
+    parser.add_argument(
+        "--local_save_dir", default="data/deepmath", help="The save directory for the preprocessed dataset."
+    )
+
+    args = parser.parse_args()
+    local_dataset_path = args.local_dataset_path
+
+    # 'lighteval/MATH' is no longer available on huggingface.
+    # Use mirror repo: DigitalLearningGmbH/MATH-lighteval
+    data_source = "zwhe99/DeepMath-103K"
+    print(f"Loading the {data_source} dataset from huggingface...", flush=True)
+    train_dataset = datasets.load_dataset(
+        data_source,
+    )['train']
+    train_dataset = train_dataset.filter(lambda x: x['difficulty'] >=6)
+    print(len(train_dataset))
+    instruction_following = "\nPlease reason step by step, and put your final answer within \\boxed{}."
+
+    # add a row to each data item that represents a unique id
+    def make_map_fn(split):
+        def process_fn(example, idx):
+            question = example.pop("question")
+
+            question = question + instruction_following
+
+            answer = example.pop("final_answer")
+            data = {
+                "data_source": data_source,
+                "prompt": [{"role": "user", "content": question}],
+                "ability": "math",
+                "reward_model": {"style": "rule", "ground_truth": answer},
+                "extra_info": {"split": split, "index": idx},
+            }
+            return data
+
+        return process_fn
+
+    train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
+
+    local_save_dir = args.local_dir
+    if local_save_dir is not None:
+        print("Warning: Argument 'local_dir' is deprecated. Please use 'local_save_dir' instead.")
+    else:
+        local_save_dir = args.local_save_dir
+
+    local_dir = os.path.expanduser(local_save_dir)
+    hdfs_dir = args.hdfs_dir
+
+    train_dataset.to_parquet(os.path.join(local_dir, "train.parquet"))
+    # Save one example as JSON for reference
+    if hdfs_dir is not None:
+        makedirs(hdfs_dir)
+        copy(src=local_dir, dst=hdfs_dir)
