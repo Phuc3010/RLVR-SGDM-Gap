@@ -5,14 +5,15 @@
 #SBATCH -e log/error-GRPO-Llama-3b.out
 #SBATCH --mem=192G
 #SBATCH --time=1-00:00:00
-#SBATCH --job-name=grpo-qwen3-4b
+#SBATCH --job-name=grpo-Llama-3b
 #SBATCH --ntasks-per-node=1
 #SBATCH -G A100:4
 
 source ~/.bashrc
 conda activate prm_rlvr
-datasets=(polaris math)
+datasets=(polaris)
 
+model_name=Qwen2.5-3B-Instruct
 for dataset in "${datasets[@]}";do
 
 rm -rf ~/.cache
@@ -29,8 +30,9 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.ref.strategy=fsdp2 \
     actor_rollout_ref.actor.strategy=fsdp2 \
     data.truncation=right \
-    actor_rollout_ref.model.path=models/Llama-3.2-3B-Instruct \
-    actor_rollout_ref.actor.optim.lr=1e-6 \
+    actor_rollout_ref.model.path=models/${model_name} \
+    actor_rollout_ref.actor.optim.lr=1e-4 \
+    actor_rollout_ref.actor.optim.optim_name='SGD' \
     actor_rollout_ref.model.use_remove_padding=true \
     actor_rollout_ref.actor.use_dynamic_bsz=true \
     actor_rollout_ref.actor.ppo_mini_batch_size=16 \
@@ -49,9 +51,9 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
-    trainer.logger=['console','wandb']\
+    trainer.logger=['console']\
     trainer.project_name='RLVR-Peft' \
-    trainer.experiment_name=Llama-3.2-3B-Instruct-${dataset}-GRPO-adamw \
+    trainer.experiment_name=${model_name}-${dataset}-GRPO-SGD-1e-4 \
     reward_model.reward_manager=deepscaler \
     trainer.n_gpus_per_node=4 \
     trainer.val_before_train=true \

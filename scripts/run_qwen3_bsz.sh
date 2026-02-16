@@ -7,13 +7,14 @@
 #SBATCH --time=2-00:00:00
 #SBATCH --job-name=grpo-qwen2_5-3b
 #SBATCH --ntasks-per-node=1
-#SBATCH -G H100:4
+#SBATCH -G A100:4
 
 export VLLM_DISABLE_COMPILE_CACHE=1
 source ~/.bashrc
 conda activate prm_rlvr
 
-bszs=(16 32 64 128 256 512)
+# bszs=(16 32 64 128 256 512)
+bszs=(32 512)
 rollout_sz=16
 temp=1.0
 

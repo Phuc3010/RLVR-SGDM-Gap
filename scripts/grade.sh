@@ -1,12 +1,16 @@
-steps=(64 128 192 256 320 384 448 512)
-# datasets=("math" "deepmath" "polaris")
-datasets=("math" "deepmath")
-benchmarks=("Olympiad-Bench" "Minerva" "AIME24" "AIME25")
+steps=(512)
+bszs=(32 64 128)
+datasets=("polaris")
+# benchmarks=("Olympiad-Bench" "Minerva" "AIME24" "AIME25")
+benchmarks=("Math-500")
 
 for bench in "${benchmarks[@]}"; do
 for ds in "${datasets[@]}"; do
+for bsz in "${bszs[@]}"; do
 for step in "${steps[@]}"; do
-        python eval/grade.py --step ${step} --model_name full_${ds}_temp1.0_bsz1024_adamw --benchmark ${bench}
+        python eval/grade.py --step ${step} --model_name full_${ds}_bsz${bsz}_step${step}_adamw --benchmark ${bench}
+
+done
 done
 done
 done

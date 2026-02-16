@@ -1,20 +1,21 @@
 #!/bin/bash
 #SBATCH -c 8 # request two cores 
 #SBATCH -p kisski-h100,kisski
-#SBATCH -o log/GRPO-Qwen2_5-3b-bsz.out
-#SBATCH -e log/error-GRPO-Qwen2_5-3b-bsz.out
-#SBATCH --mem=192G
-#SBATCH --time=2-00:00:00
-#SBATCH --job-name=grpo-qwen2_5-3b
+#SBATCH -o log/GRPO-Qwen2_5-3b-rollout_sz.out
+#SBATCH -e log/error-GRPO-Qwen2_5-3b-rollout_sz.out
+#SBATCH --mem=128G
+#SBATCH --time=1-00:00:00
+#SBATCH --job-name=grpo-qwen2_5-3b_rollout
 #SBATCH --ntasks-per-node=1
-#SBATCH -G H100:4
+#SBATCH -G A100:4
 
 source ~/.bashrc
 conda activate prm_rlvr
 export VLLM_DISABLE_COMPILE_CACHE=1
 # bszs=(16 32 64 128 256 512)
 
-model_names=("Llama-3.2-3B-Instruct" "Qwen2.5-3B-Instruct")
+# model_names=("Llama-3.2-3B-Instruct" "Qwen2.5-3B-Instruct")
+model_names=("Qwen2.5-3B-Instruct")
 rollout_szs=(2 4 8 16 32)
 total_bsz=512
 temp=1.0
@@ -30,7 +31,7 @@ python3 -m verl.trainer.main_ppo \
     algorithm.norm_adv_by_std_in_grpo=false\
     data.train_files=data/polaris/train.parquet \
     data.val_files=['data/math/test.parquet']\
-    data.train_batch_size=16 \
+    data.train_batch_size=$prompt_bsz \
     data.max_prompt_length=1024 \
     data.max_response_length=3072\
     data.filter_overlong_prompts=True \
@@ -42,7 +43,7 @@ python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.model.use_remove_padding=true \
     actor_rollout_ref.actor.use_dynamic_bsz=true \
-    actor_rollout_ref.actor.ppo_mini_batch_size=64 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=$prompt_bsz \
     actor_rollout_ref.actor.use_kl_loss=False \
     actor_rollout_ref.actor.kl_loss_coef=0.0 \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
@@ -70,4 +71,6 @@ python3 -m verl.trainer.main_ppo \
     trainer.test_freq=64 \
     trainer.total_training_steps=512\
     trainer.total_epochs=15 $@
+
+done
 done
